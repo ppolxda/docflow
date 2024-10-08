@@ -1,0 +1,37 @@
+version: '3.4'
+x-xpdf-common:
+  &xpdf-common
+  environment:
+    &xpdf-common-env
+    MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+    MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    POSTGRES_DB: ${POSTGRES_DB:-pdfocr}
+    TZ: Asia/Shanghai
+
+services:
+  pdfocrbackapi:
+    image: pdf-ocr-api
+    restart: unless-stopped
+    build:
+      context: ../
+      dockerfile: docker/service_api/Dockerfile
+    ports:
+      - 20111:20110
+    env_file:
+      - .env
+    environment:
+      - BACKEND_MODE=back
+
+  pdfocrapi:
+    image: pdf-ocr-api
+    restart: unless-stopped
+    ports:
+      - 20110:20110
+    depends_on:
+      - pdfocrbackapi
+    env_file:
+      - .env
+    environment:
+      - BACKEND_MODE=api

@@ -1,0 +1,116 @@
+version: '3.4'
+x-xpdf-common:
+  &xpdf-common
+  environment:
+    &xpdf-common-env
+    MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+    MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    POSTGRES_DB: ${POSTGRES_DB:-pdfocr}
+    TZ: Asia/Shanghai
+
+services:
+  pdfworker:
+    image: pdfworker
+    restart: unless-stopped
+    build:
+      context: ../
+      dockerfile: docker/service_backend/Dockerfile
+      args:
+        - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-minioadmin}
+        - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-minioadmin}
+        - MLFLOW_ARTIFACT_URI_PDFCLASS_BERT=${MLFLOW_ARTIFACT_URI_PDFCLASS_BERT:-models:/pdfclassificationBert/7}
+        - MLFLOW_ARTIFACT_URI_PDFCLASS=${MLFLOW_ARTIFACT_URI_PDFCLASS:-models:/pdfclassification/1}
+        - MLFLOW_ARTIFACT_URI_KEYINFO=${MLFLOW_ARTIFACT_URI_KEYINFO:-models:/keyinfo/4}
+        - MLFLOW_ARTIFACT_URI_PDFSIDE=${MLFLOW_ARTIFACT_URI_PDFSIDE:-models:/pdfside/1}
+        - MLFLOW_ARTIFACT_URI_TABLE_STRUCTURE=${MLFLOW_ARTIFACT_URI_TABLE_STRUCTURE:-models:/tabletransformer_structure/1}
+        - MLFLOW_ARTIFACT_URI_TABLE_DETECTION=${MLFLOW_ARTIFACT_URI_TABLE_DETECTION:-models:/tabletransformer_detection/1}
+        - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://127.0.0.1/mlflow}
+        - MLFLOW_S3_ENDPOINT_URL=${MLFLOW_S3_ENDPOINT_URL:-http://127.0.0.1:9000}
+    env_file:
+      - .env
+
+  keyinfoapi:
+    image: pdfworker
+    restart: unless-stopped
+    command:
+      [
+        "gunicorn",
+        "--bind",
+        "0.0.0.0:5000",
+        "-w",
+        "1",
+        "-k",
+        "uvicorn.workers.UvicornWorker",
+        "backend.api.keyinfo_main:app"
+      ]
+    depends_on:
+      - pdfworker
+    ports:
+      - 5000:5000
+    env_file:
+      - .env
+
+  pdfclassapi:
+    image: pdfworker
+    restart: unless-stopped
+    command:
+      [
+        "gunicorn",
+        "--bind",
+        "0.0.0.0:5001",
+        "-w",
+        "1",
+        "-k",
+        "uvicorn.workers.UvicornWorker",
+        "backend.api.pdfclasss_main:app"
+      ]
+    depends_on:
+      - pdfworker
+    ports:
+      - 5001:5001
+    env_file:
+      - .env
+
+  pdfsideapi:
+    image: pdfworker
+    restart: unless-stopped
+    command:
+      [
+        "gunicorn",
+        "--bind",
+        "0.0.0.0:5002",
+        "-w",
+        "1",
+        "-k",
+        "uvicorn.workers.UvicornWorker",
+        "backend.api.pdfside_main:app"
+      ]
+    depends_on:
+      - pdfworker
+    ports:
+      - 5002:5002
+    env_file:
+      - .env
+
+  tableapi:
+    image: pdfworker
+    restart: unless-stopped
+    command:
+      [
+        "gunicorn",
+        "--bind",
+        "0.0.0.0:5003",
+        "-w",
+        "1",
+        "-k",
+        "uvicorn.workers.UvicornWorker",
+        "backend.api.table_main:app"
+      ]
+    depends_on:
+      - pdfworker
+    ports:
+      - 5003:5003
+    env_file:
+      - .env
